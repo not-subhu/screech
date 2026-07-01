@@ -134,7 +134,7 @@ ThemeData buildQuestifyTheme() {
       titleTextStyle: AppText.textTheme.displayMedium,
       iconTheme: const IconThemeData(color: AppColors.textPrimary),
     ),
-    cardTheme: CardThemeData(
+    cardTheme: const CardTheme(
       color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

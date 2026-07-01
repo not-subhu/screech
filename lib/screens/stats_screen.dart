@@ -8,6 +8,9 @@ import '../providers/tasks_provider.dart';
 import '../providers/habits_provider.dart';
 import '../theme/app_theme.dart';
 
+// TODO: Import the file where LedgerType is defined, if it isn't part of the providers above.
+// For example: import '../models/ledger_entry.dart';
+
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
 
