@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
+import '../models/wallet.dart';
 import '../providers/wallet_provider.dart';
 import '../providers/tasks_provider.dart';
 import '../providers/habits_provider.dart';
-import '../models/wallet.dart';
 import '../theme/app_theme.dart';
 
 class StatsScreen extends ConsumerWidget {

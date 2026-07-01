@@ -134,13 +134,11 @@ ThemeData buildQuestifyTheme() {
       titleTextStyle: AppText.textTheme.displayMedium,
       iconTheme: const IconThemeData(color: AppColors.textPrimary),
     ),
-   cardTheme: CardTheme(
-  color: AppColors.surface,
-  elevation: 0,
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(20),
-  ),
-),
+    cardTheme: CardTheme(
+      color: AppColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.sakura,
       foregroundColor: Colors.white,

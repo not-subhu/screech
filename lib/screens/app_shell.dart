@@ -20,8 +20,6 @@ class AppShell extends ConsumerWidget {
     StatsScreen(),
   ];
 
-  static const _titles = ['Quests', 'Habits', 'Shop', 'Stats'];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final navIndex = ref.watch(_navIndexProvider);
