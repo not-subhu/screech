@@ -6,6 +6,7 @@ import 'services/db_service.dart';
 import 'services/notification_service.dart';
 import 'screens/app_shell.dart';
 import 'theme/app_theme.dart';
+import 'providers/settings_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,31 +17,36 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set system UI overlay to blend with our dark background.
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppColors.bgDeep,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
-
   await DbService.open();
   await NotificationService.init();
 
-  runApp(const ProviderScope(child: QuestifyApp()));
+  runApp(const ProviderScope(child: ScreechApp()));
 }
 
-class QuestifyApp extends StatelessWidget {
-  const QuestifyApp({super.key});
+class ScreechApp extends ConsumerWidget {
+  const ScreechApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
+    // System UI (status bar / nav bar) follows the user's dark/light choice.
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            settings.isDarkMode ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor:
+            settings.isDarkMode ? AppColors.bgDeep : AppColors.bgLight,
+        systemNavigationBarIconBrightness:
+            settings.isDarkMode ? Brightness.light : Brightness.dark,
+      ),
+    );
+
     return MaterialApp(
-      title: 'Questify',
+      title: 'Screech',
       debugShowCheckedModeBanner: false,
-      theme: buildQuestifyTheme(),
+      theme: buildAppTheme(accent: settings.accentColor, isDark: settings.isDarkMode),
       home: const AppShell(),
     );
   }

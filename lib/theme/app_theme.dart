@@ -1,21 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Questify design tokens.
+/// Screech design tokens.
 ///
-/// Direction: JRPG status-screen / quest-log aesthetic — think the party
-/// menu in a Persona-style game — rather than generic "pastel anime app."
-/// Deep indigo-violet base, sakura pink + mint cyan dual accent, coin-gold
-/// for currency. Rounded display face for personality, clean sans for body.
+/// The app now runs on a "liquid glass" chrome layer (drawer, nav bar, FAB,
+/// hero header controls, personalization screen) built on top of this
+/// palette. Existing screens (Habits/Shop/Stats) keep using the original
+/// dark JRPG palette below unchanged, so none of those fields were removed
+/// — only new dynamic (light/dark aware) tokens were added alongside them.
 class AppColors {
   AppColors._();
 
-  // Base
+  // Base (dark)
   static const bg = Color(0xFF1A1025);
   static const bgDeep = Color(0xFF120B1C);
   static const surface = Color(0xFF2D1B4E);
   static const surfaceRaised = Color(0xFF3A2566);
   static const surfaceBorder = Color(0xFF4A3370);
+
+  // Base (light) — used when Personalization → Appearance is set to Light.
+  static const bgLight = Color(0xFFF5F0FB);
+  static const bgDeepLight = Color(0xFFEAE1F7);
+  static const surfaceLight = Color(0xFFFFFFFF);
+  static const surfaceRaisedLight = Color(0xFFF2EAFB);
+  static const surfaceBorderLight = Color(0xFFDACEEF);
+  static const textPrimaryLight = Color(0xFF241832);
+  static const textSecondaryLight = Color(0xFF5B4B78);
+  static const textMutedLight = Color(0xFF8B7BA8);
 
   // Accents
   static const sakura = Color(0xFFFF6FA5);
@@ -26,7 +37,11 @@ class AppColors {
   static const coinGoldDeep = Color(0xFFE0A93B);
   static const urgentRed = Color(0xFFFF5C7A);
 
-  // Text
+  /// Default accent for a fresh install (crimson — matches Screech's
+  /// scribble logo mark). User can change this in Personalization.
+  static const defaultAccent = Color(0xFFE23744);
+
+  // Text (dark)
   static const textPrimary = Color(0xFFF4EBFF);
   static const textSecondary = Color(0xFFB8A8D9);
   static const textMuted = Color(0xFF7C6B9C);
@@ -114,44 +129,82 @@ class AppText {
       );
 }
 
-ThemeData buildQuestifyTheme() {
-  final base = ThemeData.dark(useMaterial3: true);
+/// Resolves the right colors for the current appearance (dark/light) and
+/// the user's chosen accent, so glass widgets never hardcode a palette.
+class GlassPalette {
+  const GlassPalette({required this.isDark, required this.accent});
+
+  final bool isDark;
+  final Color accent;
+
+  Color get bg => isDark ? AppColors.bgDeep : AppColors.bgLight;
+  Color get bgSecondary => isDark ? AppColors.bg : AppColors.bgDeepLight;
+  Color get surface => isDark ? AppColors.surface : AppColors.surfaceLight;
+  Color get surfaceRaised =>
+      isDark ? AppColors.surfaceRaised : AppColors.surfaceRaisedLight;
+  Color get border =>
+      isDark ? AppColors.surfaceBorder : AppColors.surfaceBorderLight;
+  Color get textPrimary =>
+      isDark ? AppColors.textPrimary : AppColors.textPrimaryLight;
+  Color get textSecondary =>
+      isDark ? AppColors.textSecondary : AppColors.textSecondaryLight;
+  Color get textMuted => isDark ? AppColors.textMuted : AppColors.textMutedLight;
+
+  /// Border used on frosted-glass panels — brighter/whiter in dark mode to
+  /// read as a light-catching edge, softer in light mode.
+  Color get glassBorder =>
+      isDark ? Colors.white.withOpacity(0.16) : Colors.white.withOpacity(0.7);
+
+  Color get glassShadow => isDark ? Colors.black : Colors.black.withOpacity(0.5);
+}
+
+ThemeData buildAppTheme({required Color accent, required bool isDark}) {
+  final palette = GlassPalette(isDark: isDark, accent: accent);
+  final base = isDark
+      ? ThemeData.dark(useMaterial3: true)
+      : ThemeData.light(useMaterial3: true);
+  final textTheme = isDark
+      ? AppText.textTheme
+      : AppText.textTheme.apply(
+          bodyColor: palette.textPrimary,
+          displayColor: palette.textPrimary,
+        );
+
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.bg,
-    primaryColor: AppColors.sakura,
-    colorScheme: const ColorScheme.dark(
-      primary: AppColors.sakura,
+    scaffoldBackgroundColor: palette.bg,
+    primaryColor: accent,
+    colorScheme:
+        (isDark ? const ColorScheme.dark() : const ColorScheme.light())
+            .copyWith(
+      primary: accent,
       secondary: AppColors.mint,
       tertiary: AppColors.coinGold,
-      surface: AppColors.surface,
+      surface: palette.surface,
       error: AppColors.urgentRed,
     ),
-    textTheme: AppText.textTheme,
+    textTheme: textTheme,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.bg,
+      backgroundColor: palette.bg,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: AppText.textTheme.displayMedium,
-      iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      titleTextStyle: textTheme.displayMedium,
+      iconTheme: IconThemeData(color: palette.textPrimary),
     ),
     cardTheme: CardTheme(
-      color: AppColors.surface,
+      color: palette.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.sakura,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: accent,
       foregroundColor: Colors.white,
     ),
-    bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: AppColors.bgDeep,
-      selectedItemColor: AppColors.sakura,
-      unselectedItemColor: AppColors.textMuted,
-      type: BottomNavigationBarType.fixed,
-      selectedLabelStyle: AppText.textTheme.labelSmall,
-      unselectedLabelStyle: AppText.textTheme.labelSmall,
-    ),
-    dividerColor: AppColors.surfaceBorder,
-    iconTheme: const IconThemeData(color: AppColors.textPrimary),
+    dividerColor: palette.border,
+    iconTheme: IconThemeData(color: palette.textPrimary),
   );
 }
+
+/// Legacy helper kept for compatibility — builds the original always-dark
+/// Screech theme with the default accent.
+ThemeData buildQuestifyTheme() =>
+    buildAppTheme(accent: AppColors.defaultAccent, isDark: true);

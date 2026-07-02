@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/task.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import 'liquid_glass.dart';
 
-/// The app's signature interaction: a trading-card-style quest entry with
-/// a gradient rarity stripe down the left edge. Tapping the check ring
-/// triggers a coin-burst pop. This single motif is meant to be the thing
-/// that makes the app feel distinct from a generic todo list.
-class QuestCard extends StatefulWidget {
+/// The app's signature interaction: a frosted-glass, trading-card-style
+/// quest entry with a gradient rarity stripe down the left edge. Tapping
+/// the check ring triggers a coin-burst pop.
+class QuestCard extends ConsumerStatefulWidget {
   const QuestCard({
     super.key,
     required this.task,
@@ -22,10 +24,10 @@ class QuestCard extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<QuestCard> createState() => _QuestCardState();
+  ConsumerState<QuestCard> createState() => _QuestCardState();
 }
 
-class _QuestCardState extends State<QuestCard> {
+class _QuestCardState extends ConsumerState<QuestCard> {
   bool _justCompleted = false;
 
   Color get _priorityColor {
@@ -70,30 +72,17 @@ class _QuestCardState extends State<QuestCard> {
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
+    final settings = ref.watch(settingsProvider);
+    final palette =
+        GlassPalette(isDark: settings.isDarkMode, accent: settings.accentColor);
 
-    Widget card = Container(
+    Widget card = LiquidGlass(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: AppColors.cardGradient,
-        border: Border.all(
-          color: _isOverdue
-              ? AppColors.urgentRed.withOpacity(0.6)
-              : AppColors.surfaceBorder,
-          width: 1,
-        ),
-        boxShadow: _isDueSoon
-            ? [
-                BoxShadow(
-                  color: AppColors.sakura.withOpacity(0.25),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
+      borderRadius: 18,
+      borderColor: _isOverdue ? AppColors.urgentRed.withOpacity(0.6) : null,
+      child: _GlowIfDueSoon(
+        active: _isDueSoon,
+        color: palette.accent,
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,12 +95,16 @@ class _QuestCardState extends State<QuestCard> {
                       ? LinearGradient(
                           colors: [
                             AppColors.mint.withOpacity(0.5),
-                            AppColors.mint.withOpacity(0.2)
+                            AppColors.mint.withOpacity(0.2),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         )
-                      : AppColors.rarityStripe,
+                      : LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [palette.accent, AppColors.mint, AppColors.coinGold],
+                        ),
                 ),
               ),
               Expanded(
@@ -163,8 +156,8 @@ class _QuestCardState extends State<QuestCard> {
                                           ? TextDecoration.lineThrough
                                           : null,
                                       color: task.isCompleted
-                                          ? AppColors.textMuted
-                                          : AppColors.textPrimary,
+                                          ? palette.textMuted
+                                          : palette.textPrimary,
                                     ),
                               ),
                               if (task.dueAt != null) ...[
@@ -176,17 +169,16 @@ class _QuestCardState extends State<QuestCard> {
                                       size: 13,
                                       color: _isOverdue
                                           ? AppColors.urgentRed
-                                          : AppColors.textMuted,
+                                          : palette.textMuted,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      DateFormat('MMM d, h:mm a')
-                                          .format(task.dueAt!),
+                                      DateFormat('MMM d, h:mm a').format(task.dueAt!),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: _isOverdue
                                             ? AppColors.urgentRed
-                                            : AppColors.textMuted,
+                                            : palette.textMuted,
                                         fontWeight: _isOverdue
                                             ? FontWeight.w700
                                             : FontWeight.w400,
@@ -202,6 +194,7 @@ class _QuestCardState extends State<QuestCard> {
                         _CompletionRing(
                           coinValue: task.coinValue,
                           isCompleted: task.isCompleted,
+                          accent: palette.accent,
                           onTap: () {
                             if (!task.isCompleted) {
                               setState(() => _justCompleted = true);
@@ -243,15 +236,40 @@ class _QuestCardState extends State<QuestCard> {
   }
 }
 
+/// Wraps content with a soft accent-colored glow when the task is due soon
+/// — kept as a thin decorative layer so it composes cleanly with the glass
+/// card underneath instead of fighting its BoxDecoration.
+class _GlowIfDueSoon extends StatelessWidget {
+  const _GlowIfDueSoon({required this.child, required this.active, required this.color});
+
+  final Widget child;
+  final bool active;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) return child;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.25), blurRadius: 16, spreadRadius: 1)],
+      ),
+      child: child,
+    );
+  }
+}
+
 class _CompletionRing extends StatelessWidget {
   const _CompletionRing({
     required this.coinValue,
     required this.isCompleted,
+    required this.accent,
     required this.onTap,
   });
 
   final int coinValue;
   final bool isCompleted;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
@@ -261,22 +279,23 @@ class _CompletionRing extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
             width: 44,
             height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: isCompleted ? null : AppColors.sakuraGlow,
+              gradient: isCompleted
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [accent, accent.withOpacity(0.75)],
+                    ),
               color: isCompleted ? AppColors.surfaceBorder : null,
               boxShadow: isCompleted
                   ? null
-                  : [
-                      BoxShadow(
-                        color: AppColors.sakura.withOpacity(0.4),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
+                  : [BoxShadow(color: accent.withOpacity(0.4), blurRadius: 10, spreadRadius: 1)],
             ),
             child: Icon(
               isCompleted ? Icons.check : Icons.radio_button_unchecked,
