@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
@@ -169,7 +173,27 @@ class _PersonalizationScreenState
                   return _HeaderStyleThumb(
                     style: style,
                     selected: style == settings.headerStyle,
-                    onTap: () => notifier.setHeaderStyle(style),
+                    customPhotoPath: settings.customPhotoPath,
+                    onTap: () async {
+                      if (style == HeaderStyle.photo) {
+                        // Launch image picker
+                        final picker = ImagePicker();
+                        final picked = await picker.pickImage(
+                          source: ImageSource.gallery,
+                          imageQuality: 85,
+                        );
+                        if (picked != null && context.mounted) {
+                          // Copy to app documents for persistence
+                          final docs = await getApplicationDocumentsDirectory();
+                          final dest = '${docs.path}/custom_header.jpg';
+                          await File(picked.path).copy(dest);
+                          notifier.setCustomPhotoPath(dest);
+                          notifier.setHeaderStyle(HeaderStyle.photo);
+                        }
+                      } else {
+                        notifier.setHeaderStyle(style);
+                      }
+                    },
                   );
                 },
               ),
@@ -345,13 +369,6 @@ class _PersonalizationScreenState
                     sub: 'Pick a sound for quest reminders',
                     palette: palette,
                   ),
-                  _Divider(palette),
-                  _ComingSoonRow(
-                    icon: Icons.wallpaper_rounded,
-                    label: 'Custom header photo',
-                    sub: 'Upload your own hero image',
-                    palette: palette,
-                  ),
                 ],
               ),
             ),
@@ -505,11 +522,13 @@ class _HeaderStyleThumb extends StatelessWidget {
     required this.style,
     required this.selected,
     required this.onTap,
+    this.customPhotoPath,
   });
 
   final HeaderStyle style;
   final bool selected;
   final VoidCallback onTap;
+  final String? customPhotoPath;
 
   Gradient get _gradient {
     switch (style) {
@@ -565,9 +584,22 @@ class _HeaderStyleThumb extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (style == HeaderStyle.photo)
-                Image.asset('assets/images/header_hero.webp',
-                    fit: BoxFit.cover)
+              if (style == HeaderStyle.photo && customPhotoPath != null)
+                Image.file(File(customPhotoPath!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                        'assets/images/header_hero.webp',
+                        fit: BoxFit.cover))
+              else if (style == HeaderStyle.photo)
+                Stack(fit: StackFit.expand, children: [
+                  Image.asset('assets/images/header_hero.webp',
+                      fit: BoxFit.cover),
+                  const ColoredBox(color: Color(0x44000000)),
+                  const Center(
+                    child: Icon(Icons.add_photo_alternate_rounded,
+                        color: Colors.white70, size: 22),
+                  ),
+                ])
               else
                 DecoratedBox(
                     decoration: BoxDecoration(gradient: _gradient)),

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/coin_badge.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/add_task_sheet.dart';
+import '../widgets/quick_add_panel.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -21,6 +23,10 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _showQuickAdd = false;
+
+  void _openQuickAdd() => setState(() => _showQuickAdd = true);
+  void _closeQuickAdd() => setState(() => _showQuickAdd = false);
 
   @override
   Widget build(BuildContext context) {
@@ -29,55 +35,96 @@ class _AppShellState extends ConsumerState<AppShell> {
     final palette =
         GlassPalette(isDark: settings.isDarkMode, accent: settings.accentColor);
     final width = MediaQuery.of(context).size.width;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     const screens = <Widget>[
       TasksScreen(),
       ShopScreen(),
     ];
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: palette.bg,
-      extendBody: true,
-      drawer: const AppDrawer(),
-      drawerEdgeDragWidth: width * 0.5,
-      drawerScrimColor: Colors.black.withOpacity(0.45),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: IndexedStack(index: navIndex, children: screens),
-          ),
-          // Hamburger — top left
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-            left: 16,
-            child: LiquidGlassIconButton(
-              icon: Icons.menu_rounded,
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+    return PopScope(
+      canPop: !_showQuickAdd,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _showQuickAdd) _closeQuickAdd();
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: palette.bg,
+        // Don't let scaffold resize — the quick-add panel handles keyboard itself
+        resizeToAvoidBottomInset: false,
+        extendBody: true,
+        drawer: const AppDrawer(),
+        drawerEdgeDragWidth: width * 0.5,
+        drawerScrimColor: Colors.black.withOpacity(0.45),
+        body: Stack(
+          children: [
+            // ── Main content ───────────────────────────────────────────────
+            Positioned.fill(
+              child: IndexedStack(index: navIndex, children: screens),
             ),
-          ),
-          // Coin badge — top right
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 14,
-            right: 16,
-            child: const CoinBadge(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _GlassBottomBar(
-        navIndex: navIndex,
-        palette: palette,
-        onSelect: (i) => ref.read(navIndexProvider.notifier).state = i,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: _GlassFab(
-        accent: settings.accentColor,
-        onTap: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const AddTaskSheet(),
+
+            // ── Hamburger — top left ───────────────────────────────────────
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 12,
+              left: 16,
+              child: LiquidGlassIconButton(
+                icon: Icons.menu_rounded,
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
+            ),
+
+            // ── Coin badge — top right ─────────────────────────────────────
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 14,
+              right: 16,
+              child: const CoinBadge(),
+            ),
+
+            // ── Backdrop blur when quick-add is open ───────────────────────
+            if (_showQuickAdd)
+              Positioned.fill(
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                    child: GestureDetector(
+                      onTap: _closeQuickAdd,
+                      child: Container(
+                        color: Colors.black.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // ── Quick-add panel — sits just above the keyboard ─────────────
+            if (_showQuickAdd)
+              Positioned(
+                bottom: keyboardHeight,
+                left: 0,
+                right: 0,
+                child: QuickAddPanel(
+                  accentColor: settings.accentColor,
+                  isDark: settings.isDarkMode,
+                  onClose: _closeQuickAdd,
+                ),
+              ),
+          ],
         ),
+        bottomNavigationBar: _showQuickAdd
+            ? null // hide nav bar while quick-add is open
+            : _GlassBottomBar(
+                navIndex: navIndex,
+                palette: palette,
+                onSelect: (i) =>
+                    ref.read(navIndexProvider.notifier).state = i,
+              ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: _showQuickAdd
+            ? null
+            : _GlassFab(
+                accent: settings.accentColor,
+                onTap: _openQuickAdd,
+              ),
       ),
     );
   }
@@ -113,8 +160,6 @@ class _GlassBottomBar extends StatelessWidget {
           height: 56,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Each half takes ~40 % of the bar; the centre 20 % is the FAB
-              // gap (FloatingActionButtonLocation.centerDocked pushes into it).
               const fabGapFraction = 0.22;
               final sideWidth =
                   constraints.maxWidth * (1 - fabGapFraction) / 2;
@@ -147,7 +192,6 @@ class _GlassBottomBar extends StatelessWidget {
                   // Tab buttons
                   Row(
                     children: [
-                      // Left tab (Quests)
                       SizedBox(
                         width: sideWidth,
                         child: _TabItem(
@@ -159,9 +203,7 @@ class _GlassBottomBar extends StatelessWidget {
                           onTap: () => onSelect(0),
                         ),
                       ),
-                      // FAB gap
                       SizedBox(width: constraints.maxWidth * fabGapFraction),
-                      // Right tab (Shop)
                       SizedBox(
                         width: sideWidth,
                         child: _TabItem(

@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LVXGGGIdOniLUmng_0Pdh"
+uri = "file://screech.tar.gz"
+type = "unspecified"
+title = "screech — full project"

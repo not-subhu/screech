@@ -1,0 +1,2 @@
+- [Screech app overview](screech-overview.md) — Flutter Android habit/task tracker; stack, design language, and future hooks documented.
+- [Nav structure](nav-structure.md) — Two tabs only: Quests (0) + Shop (1). Habits removed for later re-integration into Tasks. Stats deleted entirely.

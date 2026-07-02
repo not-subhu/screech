@@ -46,13 +46,13 @@ class _QuestCardState extends ConsumerState<QuestCard> {
   String get _priorityLabel {
     switch (widget.task.priority) {
       case TaskPriority.low:
-        return 'LOW';
+        return 'P3';
       case TaskPriority.medium:
-        return 'MEDIUM';
+        return 'P2';
       case TaskPriority.high:
-        return 'HIGH';
+        return 'P1';
       case TaskPriority.urgent:
-        return 'URGENT';
+        return 'P!';
     }
   }
 

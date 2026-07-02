@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,7 +12,7 @@ import '../widgets/quest_card.dart';
 
 /// Tasks screen — OneUI split layout.
 /// • Viewing area: hero image/gradient that fades out as the user scrolls up.
-/// • Interaction area: the quest list fills the screen once the hero is gone.
+/// • Interaction area: a rounded "sheet" rises with the quest list.
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
 
@@ -40,13 +42,36 @@ class TasksScreen extends ConsumerWidget {
               headerStyle: settings.headerStyle,
               quote: settings.headerQuote,
               subtitle: settings.headerSubtitle,
+              customPhotoPath: settings.customPhotoPath,
+            ),
+          ),
+
+          // ── Rounded sheet cap ─────────────────────────────────────────────
+          // Creates the "card rising over hero" visual with rounded top corners
+          // and an upward shadow that separates it from the hero image.
+          SliverToBoxAdapter(
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: palette.bg,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.38),
+                    blurRadius: 28,
+                    spreadRadius: 0,
+                    offset: const Offset(0, -10),
+                  ),
+                ],
+              ),
             ),
           ),
 
           // ── Date label ────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -214,12 +239,14 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.headerStyle,
     required this.quote,
     required this.subtitle,
+    this.customPhotoPath,
   });
 
   final double maxHeight;
   final HeaderStyle headerStyle;
   final String quote;
   final String subtitle;
+  final String? customPhotoPath;
 
   @override
   double get minExtent => 0;
@@ -244,7 +271,10 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _HeroBackground(style: headerStyle),
+                _HeroBackground(
+                  style: headerStyle,
+                  customPhotoPath: customPhotoPath,
+                ),
                 // Bottom-to-top gradient scrim
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -260,7 +290,7 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                 Positioned(
                   left: 26,
                   right: 26,
-                  bottom: 28,
+                  bottom: 40,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -300,19 +330,29 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.maxHeight != maxHeight ||
         oldDelegate.headerStyle != headerStyle ||
         oldDelegate.quote != quote ||
-        oldDelegate.subtitle != subtitle;
+        oldDelegate.subtitle != subtitle ||
+        oldDelegate.customPhotoPath != customPhotoPath;
   }
 }
 
 class _HeroBackground extends StatelessWidget {
-  const _HeroBackground({required this.style});
+  const _HeroBackground({required this.style, this.customPhotoPath});
 
   final HeaderStyle style;
+  final String? customPhotoPath;
 
   @override
   Widget build(BuildContext context) {
     switch (style) {
       case HeaderStyle.photo:
+        // Use custom picked photo if available, else fall back to asset.
+        if (customPhotoPath != null) {
+          final file = File(customPhotoPath!);
+          return Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) {
+            return Image.asset('assets/images/header_hero.webp',
+                fit: BoxFit.cover);
+          });
+        }
         return Image.asset('assets/images/header_hero.webp', fit: BoxFit.cover);
       case HeaderStyle.sakuraDusk:
         return const DecoratedBox(

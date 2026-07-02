@@ -17,6 +17,7 @@ class AppSettings {
     required this.glassOpacity,
     required this.headerQuote,
     required this.headerSubtitle,
+    this.customPhotoPath,
   });
 
   final Color accentColor;
@@ -35,6 +36,9 @@ class AppSettings {
   /// Subtitle shown under the quote (supports Japanese/other scripts).
   final String headerSubtitle;
 
+  /// Path to a user-picked custom header photo. Null when not set.
+  final String? customPhotoPath;
+
   static const defaults = AppSettings(
     accentColor: AppColors.defaultAccent,
     isDarkMode: true,
@@ -43,6 +47,7 @@ class AppSettings {
     glassOpacity: 0.16,
     headerQuote: 'Keep going.',
     headerSubtitle: 'Discipline today, freedom tomorrow.',
+    customPhotoPath: null,
   );
 
   AppSettings copyWith({
@@ -53,7 +58,13 @@ class AppSettings {
     double? glassOpacity,
     String? headerQuote,
     String? headerSubtitle,
+    String? customPhotoPath,
+    bool clearCustomPhoto = false,
   }) {
+    assert(
+      !(clearCustomPhoto && customPhotoPath != null),
+      'clearCustomPhoto and customPhotoPath are mutually exclusive',
+    );
     return AppSettings(
       accentColor: accentColor ?? this.accentColor,
       isDarkMode: isDarkMode ?? this.isDarkMode,
@@ -62,6 +73,8 @@ class AppSettings {
       glassOpacity: glassOpacity ?? this.glassOpacity,
       headerQuote: headerQuote ?? this.headerQuote,
       headerSubtitle: headerSubtitle ?? this.headerSubtitle,
+      customPhotoPath:
+          clearCustomPhoto ? null : (customPhotoPath ?? this.customPhotoPath),
     );
   }
 }
@@ -78,6 +91,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   static const _kOpacity = 'screech_settings_opacity';
   static const _kQuote = 'screech_settings_quote';
   static const _kSubtitle = 'screech_settings_subtitle';
+  static const _kCustomPhoto = 'screech_settings_custom_photo';
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -99,6 +113,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           prefs.getString(_kQuote) ?? AppSettings.defaults.headerQuote,
       headerSubtitle:
           prefs.getString(_kSubtitle) ?? AppSettings.defaults.headerSubtitle,
+      customPhotoPath: prefs.getString(_kCustomPhoto),
     );
   }
 
@@ -111,6 +126,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await prefs.setDouble(_kOpacity, state.glassOpacity);
     await prefs.setString(_kQuote, state.headerQuote);
     await prefs.setString(_kSubtitle, state.headerSubtitle);
+    if (state.customPhotoPath != null) {
+      await prefs.setString(_kCustomPhoto, state.customPhotoPath!);
+    } else {
+      await prefs.remove(_kCustomPhoto);
+    }
   }
 
   void setAccent(Color color) {
@@ -139,12 +159,22 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   void setHeaderQuote(String value) {
-    state = state.copyWith(headerQuote: value.isEmpty ? AppSettings.defaults.headerQuote : value);
+    state = state.copyWith(
+        headerQuote: value.isEmpty ? AppSettings.defaults.headerQuote : value);
     _persist();
   }
 
   void setHeaderSubtitle(String value) {
     state = state.copyWith(headerSubtitle: value);
+    _persist();
+  }
+
+  void setCustomPhotoPath(String? path) {
+    if (path == null) {
+      state = state.copyWith(clearCustomPhoto: true);
+    } else {
+      state = state.copyWith(customPhotoPath: path);
+    }
     _persist();
   }
 }
