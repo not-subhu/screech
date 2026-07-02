@@ -44,7 +44,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     return PopScope(
       canPop: !_showQuickAdd,
-      onPopInvokedWithResult: (didPop, _) {
+      onPopInvoked: (didPop) {
         if (!didPop && _showQuickAdd) _closeQuickAdd();
       },
       child: Scaffold(
