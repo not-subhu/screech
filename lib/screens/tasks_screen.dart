@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
 
 import '../providers/tasks_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/quest_card.dart';
 
-/// Tasks screen, One UI style: a big "viewing area" hero on top and an
-/// "interaction area" (the quest list) below. Scrolling down fades and
-/// shrinks the hero away entirely so the list — and every control on it —
-/// stays reachable one-handed, even when there's nothing to show yet.
+/// Tasks screen — OneUI split layout.
+/// • Viewing area: hero image/gradient that fades out as the user scrolls up.
+/// • Interaction area: the quest list fills the screen once the hero is gone.
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
 
@@ -29,30 +29,67 @@ class TasksScreen extends ConsumerWidget {
     return Container(
       color: palette.bg,
       child: CustomScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics:
+            const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
+          // ── Viewing area ──────────────────────────────────────────────────
           SliverPersistentHeader(
             pinned: false,
             delegate: _HeroHeaderDelegate(
               maxHeight: heroHeight,
               headerStyle: settings.headerStyle,
+              quote: settings.headerQuote,
+              subtitle: settings.headerSubtitle,
             ),
           ),
+
+          // ── Date label ────────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Today',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: palette.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                    style: TextStyle(fontSize: 13, color: palette.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Empty state ───────────────────────────────────────────────────
           if (isEmpty)
             SliverToBoxAdapter(
               child: SizedBox(
-                // Tall enough on its own to let the hero scroll fully away
-                // — an empty list still becomes a full-screen surface.
-                height: screenHeight,
+                height: screenHeight * 0.55,
                 child: _EmptyState(palette: palette),
               ),
             )
           else ...[
+            // ── Active quests ───────────────────────────────────────────────
             if (pending.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: Text('ACTIVE QUESTS', style: Theme.of(context).textTheme.labelSmall),
+                  child: Text(
+                    'ACTIVE QUESTS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: palette.textMuted,
+                    ),
+                  ),
                 ),
               ),
               SliverList(
@@ -73,11 +110,21 @@ class TasksScreen extends ConsumerWidget {
                 ),
               ),
             ],
+
+            // ── Completed quests ────────────────────────────────────────────
             if (completed.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: Text('COMPLETED', style: Theme.of(context).textTheme.labelSmall),
+                  child: Text(
+                    'COMPLETED',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: palette.textMuted,
+                    ),
+                  ),
                 ),
               ),
               SliverList(
@@ -88,12 +135,14 @@ class TasksScreen extends ConsumerWidget {
                     background: Container(
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 24),
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.urgentRed.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(Icons.delete_outline, color: AppColors.urgentRed),
+                      child: const Icon(Icons.delete_outline,
+                          color: AppColors.urgentRed),
                     ),
                     onDismissed: (_) =>
                         ref.read(tasksProvider.notifier).deleteTask(completed[i]),
@@ -116,6 +165,8 @@ class TasksScreen extends ConsumerWidget {
   }
 }
 
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.palette});
 
@@ -127,7 +178,9 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('✦', style: TextStyle(fontSize: 48, color: palette.accent.withOpacity(0.5)))
+          Text('✦',
+                  style: TextStyle(
+                      fontSize: 48, color: palette.accent.withOpacity(0.5)))
               .animate(onPlay: (c) => c.repeat(reverse: true))
               .scale(
                 duration: 1800.ms,
@@ -136,28 +189,37 @@ class _EmptyState extends StatelessWidget {
                 curve: Curves.easeInOut,
               ),
           const SizedBox(height: 20),
-          Text('No quests yet!', style: Theme.of(context).textTheme.titleLarge),
+          Text('No quests yet!',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: palette.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Text(
-            'Tap + below to add one  (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
-            style: Theme.of(context).textTheme.bodyMedium,
+            'Tap + below to add your first one',
+            style: TextStyle(fontSize: 14, color: palette.textSecondary),
           ),
-          const SizedBox(height: 6),
-          Text('scroll up to bring the art back ↑',
-              style: TextStyle(fontSize: 11, color: palette.textMuted)),
         ],
       ),
     );
   }
 }
 
-/// One UI-style collapsing hero: shrinks from [maxHeight] to 0 as the user
-/// scrolls, fading and drifting away rather than just being clipped off.
+// ─── Hero header (One UI viewing area) ───────────────────────────────────────
+
+/// Collapses from [maxHeight] to 0 as the user scrolls, fading and drifting
+/// the hero upward so the interaction area (list) takes the full screen.
 class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _HeroHeaderDelegate({required this.maxHeight, required this.headerStyle});
+  _HeroHeaderDelegate({
+    required this.maxHeight,
+    required this.headerStyle,
+    required this.quote,
+    required this.subtitle,
+  });
 
   final double maxHeight;
   final HeaderStyle headerStyle;
+  final String quote;
+  final String subtitle;
 
   @override
   double get minExtent => 0;
@@ -166,8 +228,10 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => maxHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final progress = maxHeight <= 0 ? 0.0 : (shrinkOffset / maxHeight).clamp(0.0, 1.0);
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final progress =
+        maxHeight <= 0 ? 0.0 : (shrinkOffset / maxHeight).clamp(0.0, 1.0);
     final opacity = (1 - progress * 1.4).clamp(0.0, 1.0);
 
     return ClipRect(
@@ -181,40 +245,45 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
               fit: StackFit.expand,
               children: [
                 _HeroBackground(style: headerStyle),
+                // Bottom-to-top gradient scrim
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0x05000000), Color(0x9E000000)],
-                      stops: [0.4, 1.0],
+                      colors: [Color(0x05000000), Color(0xBB000000)],
+                      stops: [0.35, 1.0],
                     ),
                   ),
                 ),
-                const Positioned(
+                // Quote overlay
+                Positioned(
                   left: 26,
                   right: 26,
-                  bottom: 30,
+                  bottom: 28,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Keep going.',
-                        style: TextStyle(
+                        quote,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 27,
                           fontWeight: FontWeight.w800,
+                          height: 1.2,
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Discipline today, freedom tomorrow.',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -228,7 +297,10 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _HeroHeaderDelegate oldDelegate) {
-    return oldDelegate.maxHeight != maxHeight || oldDelegate.headerStyle != headerStyle;
+    return oldDelegate.maxHeight != maxHeight ||
+        oldDelegate.headerStyle != headerStyle ||
+        oldDelegate.quote != quote ||
+        oldDelegate.subtitle != subtitle;
   }
 }
 

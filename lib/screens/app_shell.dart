@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/settings_provider.dart';
 import '../screens/tasks_screen.dart';
-import '../screens/habits_screen.dart';
 import '../screens/shop_screen.dart';
-import '../screens/stats_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/coin_badge.dart';
 import '../widgets/liquid_glass.dart';
@@ -13,11 +11,6 @@ import '../widgets/app_drawer.dart';
 import '../widgets/add_task_sheet.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
-
-/// Height reserved above Habits/Shop/Stats so their content clears the
-/// floating hamburger + coin chrome, which is drawn in a Stack above
-/// everything (Tasks screen instead builds that space into its own hero).
-const _kChromeReserve = 64.0;
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -36,22 +29,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final palette =
         GlassPalette(isDark: settings.isDarkMode, accent: settings.accentColor);
     final width = MediaQuery.of(context).size.width;
-    final topSafe = MediaQuery.of(context).padding.top;
 
-    final screens = <Widget>[
-      const TasksScreen(),
-      Padding(
-        padding: EdgeInsets.only(top: topSafe + _kChromeReserve),
-        child: const HabitsScreen(),
-      ),
-      Padding(
-        padding: EdgeInsets.only(top: topSafe + _kChromeReserve),
-        child: const ShopScreen(),
-      ),
-      Padding(
-        padding: EdgeInsets.only(top: topSafe + _kChromeReserve),
-        child: const StatsScreen(),
-      ),
+    const screens = <Widget>[
+      TasksScreen(),
+      ShopScreen(),
     ];
 
     return Scaffold(
@@ -59,23 +40,25 @@ class _AppShellState extends ConsumerState<AppShell> {
       backgroundColor: palette.bg,
       extendBody: true,
       drawer: const AppDrawer(),
-      // Sliding from the left half of the screen opens the drawer, not just
-      // the usual thin edge strip.
       drawerEdgeDragWidth: width * 0.5,
       drawerScrimColor: Colors.black.withOpacity(0.45),
       body: Stack(
         children: [
-          Positioned.fill(child: IndexedStack(index: navIndex, children: screens)),
+          Positioned.fill(
+            child: IndexedStack(index: navIndex, children: screens),
+          ),
+          // Hamburger — top left
           Positioned(
-            top: topSafe + 12,
+            top: MediaQuery.of(context).padding.top + 12,
             left: 16,
             child: LiquidGlassIconButton(
               icon: Icons.menu_rounded,
               onTap: () => _scaffoldKey.currentState?.openDrawer(),
             ),
           ),
+          // Coin badge — top right
           Positioned(
-            top: topSafe + 14,
+            top: MediaQuery.of(context).padding.top + 14,
             right: 16,
             child: const CoinBadge(),
           ),
@@ -87,20 +70,20 @@ class _AppShellState extends ConsumerState<AppShell> {
         onSelect: (i) => ref.read(navIndexProvider.notifier).state = i,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: navIndex == 0
-          ? _GlassFab(
-              accent: settings.accentColor,
-              onTap: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const AddTaskSheet(),
-              ),
-            )
-          : null,
+      floatingActionButton: _GlassFab(
+        accent: settings.accentColor,
+        onTap: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const AddTaskSheet(),
+        ),
+      ),
     );
   }
 }
+
+// ─── Bottom bar ───────────────────────────────────────────────────────────────
 
 class _GlassBottomBar extends StatelessWidget {
   const _GlassBottomBar({
@@ -113,11 +96,10 @@ class _GlassBottomBar extends StatelessWidget {
   final GlassPalette palette;
   final ValueChanged<int> onSelect;
 
+  // Two tabs only — Quests and Shop. The FAB sits between them.
   static const _items = [
     (Icons.auto_stories_outlined, Icons.auto_stories, 'Quests'),
-    (Icons.local_fire_department_outlined, Icons.local_fire_department, 'Habits'),
     (Icons.storefront_outlined, Icons.storefront, 'Shop'),
-    (Icons.bar_chart_outlined, Icons.bar_chart, 'Stats'),
   ];
 
   @override
@@ -131,71 +113,67 @@ class _GlassBottomBar extends StatelessWidget {
           height: 56,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / _items.length;
+              // Each half takes ~40 % of the bar; the centre 20 % is the FAB
+              // gap (FloatingActionButtonLocation.centerDocked pushes into it).
+              const fabGapFraction = 0.22;
+              final sideWidth =
+                  constraints.maxWidth * (1 - fabGapFraction) / 2;
               return Stack(
                 children: [
+                  // Animated selection highlight
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 320),
+                    duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
-                    left: itemWidth * navIndex,
-                    top: 0,
-                    bottom: 0,
-                    width: itemWidth,
-                    child: Center(
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: palette.accent.withOpacity(0.22),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: palette.accent.withOpacity(0.35),
-                              blurRadius: 14,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
+                    left: navIndex == 0
+                        ? sideWidth * 0.1
+                        : constraints.maxWidth - sideWidth * 1.1,
+                    top: 6,
+                    bottom: 6,
+                    width: sideWidth * 0.8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: palette.accent.withOpacity(0.22),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: palette.accent.withOpacity(0.3),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  // Tab buttons
                   Row(
-                    children: List.generate(_items.length, (i) {
-                      final selected = i == navIndex;
-                      final entry = _items[i];
-                      return Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => onSelect(i),
-                          child: AnimatedScale(
-                            scale: selected ? 1.08 : 1.0,
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutBack,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  selected ? entry.$2 : entry.$1,
-                                  color: selected ? palette.accent : palette.textMuted,
-                                  size: 22,
-                                ),
-                                const SizedBox(height: 2),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 220),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight:
-                                        selected ? FontWeight.w700 : FontWeight.w500,
-                                    color: selected ? palette.accent : palette.textMuted,
-                                  ),
-                                  child: Text(entry.$3),
-                                ),
-                              ],
-                            ),
-                          ),
+                    children: [
+                      // Left tab (Quests)
+                      SizedBox(
+                        width: sideWidth,
+                        child: _TabItem(
+                          icon: _items[0].$1,
+                          iconSelected: _items[0].$2,
+                          label: _items[0].$3,
+                          selected: navIndex == 0,
+                          palette: palette,
+                          onTap: () => onSelect(0),
                         ),
-                      );
-                    }),
+                      ),
+                      // FAB gap
+                      SizedBox(width: constraints.maxWidth * fabGapFraction),
+                      // Right tab (Shop)
+                      SizedBox(
+                        width: sideWidth,
+                        child: _TabItem(
+                          icon: _items[1].$1,
+                          iconSelected: _items[1].$2,
+                          label: _items[1].$3,
+                          selected: navIndex == 1,
+                          palette: palette,
+                          onTap: () => onSelect(1),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -207,6 +185,59 @@ class _GlassBottomBar extends StatelessWidget {
   }
 }
 
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.icon,
+    required this.iconSelected,
+    required this.label,
+    required this.selected,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData iconSelected;
+  final String label;
+  final bool selected;
+  final GlassPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedScale(
+        scale: selected ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutBack,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? iconSelected : icon,
+              color: selected ? palette.accent : palette.textMuted,
+              size: 22,
+            ),
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? palette.accent : palette.textMuted,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── FAB ─────────────────────────────────────────────────────────────────────
+
 class _GlassFab extends StatefulWidget {
   const _GlassFab({required this.accent, required this.onTap});
 
@@ -217,7 +248,8 @@ class _GlassFab extends StatefulWidget {
   State<_GlassFab> createState() => _GlassFabState();
 }
 
-class _GlassFabState extends State<_GlassFab> with SingleTickerProviderStateMixin {
+class _GlassFabState extends State<_GlassFab>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 160),
@@ -243,7 +275,8 @@ class _GlassFabState extends State<_GlassFab> with SingleTickerProviderStateMixi
       onTapCancel: () => _ctrl.reverse(),
       child: AnimatedBuilder(
         animation: _scale,
-        builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
+        builder: (context, child) =>
+            Transform.scale(scale: _scale.value, child: child),
         child: Container(
           width: 60,
           height: 60,
@@ -262,7 +295,8 @@ class _GlassFabState extends State<_GlassFab> with SingleTickerProviderStateMixi
                 offset: const Offset(0, 6),
               ),
             ],
-            border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
           ),
           child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
         ),

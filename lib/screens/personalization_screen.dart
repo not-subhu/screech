@@ -5,7 +5,7 @@ import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
 
-class PersonalizationScreen extends ConsumerWidget {
+class PersonalizationScreen extends ConsumerStatefulWidget {
   const PersonalizationScreen({super.key});
 
   static const _accentChoices = [
@@ -15,21 +15,65 @@ class PersonalizationScreen extends ConsumerWidget {
     AppColors.coinGold,
     Color(0xFF7C5CFF), // violet
     Color(0xFF4FA6FF), // sky
+    Color(0xFFFF9A6F), // peach
+    Color(0xFF50C878), // emerald
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PersonalizationScreen> createState() =>
+      _PersonalizationScreenState();
+}
+
+class _PersonalizationScreenState
+    extends ConsumerState<PersonalizationScreen> {
+  late TextEditingController _quoteCtrl;
+  late TextEditingController _subtitleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = ref.read(settingsProvider);
+    _quoteCtrl = TextEditingController(text: s.headerQuote);
+    _subtitleCtrl = TextEditingController(text: s.headerSubtitle);
+  }
+
+  /// Sync text controllers whenever the provider state changes (e.g. after
+  /// async _load() finishes or another notifier method updates the values).
+  /// Only update when the text actually differs so we don't clobber the cursor.
+  void _syncControllers(AppSettings s) {
+    if (_quoteCtrl.text != s.headerQuote) {
+      _quoteCtrl.value = _quoteCtrl.value.copyWith(text: s.headerQuote);
+    }
+    if (_subtitleCtrl.text != s.headerSubtitle) {
+      _subtitleCtrl.value =
+          _subtitleCtrl.value.copyWith(text: s.headerSubtitle);
+    }
+  }
+
+  @override
+  void dispose() {
+    _quoteCtrl.dispose();
+    _subtitleCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final palette =
         GlassPalette(isDark: settings.isDarkMode, accent: settings.accentColor);
 
+    // Keep controllers in sync if settings load asynchronously after init.
+    ref.listen(settingsProvider, (_, next) => _syncControllers(next));
+
     return Scaffold(
       backgroundColor: palette.bg,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 60),
           children: [
+            // ── Top bar ──────────────────────────────────────────────────────
             Row(
               children: [
                 LiquidGlassIconButton(
@@ -49,7 +93,10 @@ class PersonalizationScreen extends ConsumerWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 28),
+
+            // ── Appearance ───────────────────────────────────────────────────
             _SectionLabel('APPEARANCE', palette),
             const SizedBox(height: 10),
             LiquidGlass(
@@ -78,7 +125,10 @@ class PersonalizationScreen extends ConsumerWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 28),
+
+            // ── Accent color ─────────────────────────────────────────────────
             _SectionLabel('ACCENT COLOR', palette),
             const SizedBox(height: 4),
             Text(
@@ -89,7 +139,7 @@ class PersonalizationScreen extends ConsumerWidget {
             Wrap(
               spacing: 16,
               runSpacing: 16,
-              children: _accentChoices
+              children: PersonalizationScreen._accentChoices
                   .map((c) => _ColorSwatch(
                         color: c,
                         selected: c.value == settings.accentColor.value,
@@ -97,11 +147,14 @@ class PersonalizationScreen extends ConsumerWidget {
                       ))
                   .toList(),
             ),
+
             const SizedBox(height: 28),
+
+            // ── Header style ─────────────────────────────────────────────────
             _SectionLabel('HEADER STYLE', palette),
             const SizedBox(height: 4),
             Text(
-              'What shows behind "Keep going" on the Quests screen.',
+              'Background shown in the hero area on all screens.',
               style: TextStyle(fontSize: 12, color: palette.textMuted),
             ),
             const SizedBox(height: 14),
@@ -121,7 +174,84 @@ class PersonalizationScreen extends ConsumerWidget {
                 },
               ),
             ),
+
             const SizedBox(height: 28),
+
+            // ── Header quote ─────────────────────────────────────────────────
+            _SectionLabel('HEADER QUOTE', palette),
+            const SizedBox(height: 4),
+            Text(
+              'The text shown over the hero image on the Quests screen.',
+              style: TextStyle(fontSize: 12, color: palette.textMuted),
+            ),
+            const SizedBox(height: 12),
+            LiquidGlass(
+              borderRadius: 20,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Main quote',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: palette.textMuted,
+                          letterSpacing: 0.4)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _quoteCtrl,
+                    style: TextStyle(
+                        color: palette.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600),
+                    decoration: _inputDec(
+                        'e.g. Keep going.', palette, settings.accentColor),
+                    onChanged: notifier.setHeaderQuote,
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Subtitle',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: palette.textMuted,
+                          letterSpacing: 0.4)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _subtitleCtrl,
+                    style:
+                        TextStyle(color: palette.textPrimary, fontSize: 14),
+                    decoration: _inputDec(
+                        'e.g. Discipline today, freedom tomorrow.',
+                        palette,
+                        settings.accentColor),
+                    onChanged: notifier.setHeaderSubtitle,
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      _quoteCtrl.text = AppSettings.defaults.headerQuote;
+                      _subtitleCtrl.text =
+                          AppSettings.defaults.headerSubtitle;
+                      notifier.setHeaderQuote(
+                          AppSettings.defaults.headerQuote);
+                      notifier.setHeaderSubtitle(
+                          AppSettings.defaults.headerSubtitle);
+                    },
+                    child: Text(
+                      'Reset to default',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: palette.accent,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Glass intensity ──────────────────────────────────────────────
             _SectionLabel('GLASS INTENSITY', palette),
             const SizedBox(height: 4),
             Text(
@@ -131,7 +261,8 @@ class PersonalizationScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             LiquidGlass(
               borderRadius: 20,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
               child: Column(
                 children: [
                   _SliderRow(
@@ -155,20 +286,71 @@ class PersonalizationScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             LiquidGlass(
               borderRadius: 20,
               shimmer: true,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome, size: 18, color: settings.accentColor),
+                  Icon(Icons.auto_awesome,
+                      size: 18, color: settings.accentColor),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Live preview — this card uses your current settings.',
-                      style: TextStyle(fontSize: 12, color: palette.textSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: palette.textSecondary),
                     ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── More to come ─────────────────────────────────────────────────
+            _SectionLabel('COMING SOON', palette),
+            const SizedBox(height: 10),
+            LiquidGlass(
+              borderRadius: 20,
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                children: [
+                  _ComingSoonRow(
+                    icon: Icons.font_download_outlined,
+                    label: 'Font & text size',
+                    sub: 'Choose your preferred reading size',
+                    palette: palette,
+                  ),
+                  _Divider(palette),
+                  _ComingSoonRow(
+                    icon: Icons.style_outlined,
+                    label: 'Card style',
+                    sub: 'Compact list vs expanded cards',
+                    palette: palette,
+                  ),
+                  _Divider(palette),
+                  _ComingSoonRow(
+                    icon: Icons.translate_rounded,
+                    label: 'Quote language',
+                    sub: 'Japanese, Korean, or keep English',
+                    palette: palette,
+                  ),
+                  _Divider(palette),
+                  _ComingSoonRow(
+                    icon: Icons.notifications_active_outlined,
+                    label: 'Notification sound',
+                    sub: 'Pick a sound for quest reminders',
+                    palette: palette,
+                  ),
+                  _Divider(palette),
+                  _ComingSoonRow(
+                    icon: Icons.wallpaper_rounded,
+                    label: 'Custom header photo',
+                    sub: 'Upload your own hero image',
+                    palette: palette,
                   ),
                 ],
               ),
@@ -178,7 +360,32 @@ class PersonalizationScreen extends ConsumerWidget {
       ),
     );
   }
+
+  InputDecoration _inputDec(
+          String hint, GlassPalette palette, Color accent) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: palette.textMuted, fontSize: 14),
+        filled: true,
+        fillColor: palette.bgSecondary.withOpacity(0.6),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: palette.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: palette.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: accent, width: 1.5),
+        ),
+      );
 }
+
+// ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text, this.palette);
@@ -220,7 +427,9 @@ class _ModeButton extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? palette.accent.withOpacity(0.22) : Colors.transparent,
+          color: selected
+              ? palette.accent.withOpacity(0.22)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: selected
               ? Border.all(color: palette.accent.withOpacity(0.6))
@@ -228,7 +437,9 @@ class _ModeButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: selected ? palette.accent : palette.textMuted, size: 20),
+            Icon(icon,
+                color: selected ? palette.accent : palette.textMuted,
+                size: 20),
             const SizedBox(height: 4),
             Text(
               label,
@@ -273,10 +484,17 @@ class _ColorSwatch extends StatelessWidget {
             width: selected ? 3 : 1.5,
           ),
           boxShadow: selected
-              ? [BoxShadow(color: color.withOpacity(0.55), blurRadius: 16, spreadRadius: 1)]
+              ? [
+                  BoxShadow(
+                      color: color.withOpacity(0.55),
+                      blurRadius: 16,
+                      spreadRadius: 1)
+                ]
               : [],
         ),
-        child: selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 20) : null,
+        child: selected
+            ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+            : null,
       ),
     );
   }
@@ -296,7 +514,8 @@ class _HeaderStyleThumb extends StatelessWidget {
   Gradient get _gradient {
     switch (style) {
       case HeaderStyle.photo:
-        return const LinearGradient(colors: [Color(0xFF3A2566), Color(0xFF120B1C)]);
+        return const LinearGradient(
+            colors: [Color(0xFF3A2566), Color(0xFF120B1C)]);
       case HeaderStyle.sakuraDusk:
         return const LinearGradient(
           colors: [Color(0xFFFF6FA5), Color(0xFF6A3E9C), Color(0xFF1A1025)],
@@ -335,7 +554,9 @@ class _HeaderStyleThumb extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? Colors.white : Colors.white.withOpacity(0.15),
+            color: selected
+                ? Colors.white
+                : Colors.white.withOpacity(0.15),
             width: selected ? 2.5 : 1,
           ),
         ),
@@ -345,9 +566,11 @@ class _HeaderStyleThumb extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (style == HeaderStyle.photo)
-                Image.asset('assets/images/header_hero.webp', fit: BoxFit.cover)
+                Image.asset('assets/images/header_hero.webp',
+                    fit: BoxFit.cover)
               else
-                DecoratedBox(decoration: BoxDecoration(gradient: _gradient)),
+                DecoratedBox(
+                    decoration: BoxDecoration(gradient: _gradient)),
               Positioned(
                 left: 6,
                 right: 6,
@@ -367,7 +590,8 @@ class _HeaderStyleThumb extends StatelessWidget {
                 const Positioned(
                   top: 6,
                   right: 6,
-                  child: Icon(Icons.check_circle, color: Colors.white, size: 16),
+                  child: Icon(Icons.check_circle,
+                      color: Colors.white, size: 16),
                 ),
             ],
           ),
@@ -403,14 +627,12 @@ class _SliderRow extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: palette.textPrimary,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: palette.textPrimary,
+                )),
             Text(
               value.toStringAsFixed(value < 1 ? 2 : 0),
               style: TextStyle(fontSize: 12, color: palette.textMuted),
@@ -424,9 +646,75 @@ class _SliderRow extends StatelessWidget {
             overlayColor: accent.withOpacity(0.2),
             inactiveTrackColor: palette.border,
           ),
-          child: Slider(value: value, min: min, max: max, onChanged: onChanged),
+          child:
+              Slider(value: value, min: min, max: max, onChanged: onChanged),
         ),
       ],
     );
   }
+}
+
+class _ComingSoonRow extends StatelessWidget {
+  const _ComingSoonRow({
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.palette,
+  });
+
+  final IconData icon;
+  final String label;
+  final String sub;
+  final GlassPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: palette.textMuted),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: palette.textPrimary)),
+                Text(sub,
+                    style: TextStyle(
+                        fontSize: 12, color: palette.textMuted)),
+              ],
+            ),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: palette.border.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text('Soon',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: palette.textMuted)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider(this.palette);
+  final GlassPalette palette;
+
+  @override
+  Widget build(BuildContext context) => Divider(
+      height: 1, thickness: 1, color: palette.border.withOpacity(0.5),
+      indent: 50, endIndent: 16);
 }
